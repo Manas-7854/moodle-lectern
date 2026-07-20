@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version information for local_slidesmaker.
+ * Admin settings for local_slidesmaker.
  *
  * @package    local_slidesmaker
  * @copyright  2026 Moodle Plugins Portfolio
@@ -24,8 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_slidesmaker';
-$plugin->version   = 2026012501;        // The current module version (Date: YYYYMMDDXX).
-$plugin->requires  = 2022041900;        // Requires this Moodle version.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v1.0';
+if ($hassiteconfig) {
+    $settings->add(new admin_setting_configtext(
+        'local_slidesmaker/aibackend_url',
+        get_string('aibackendurl', 'local_slidesmaker'),
+        get_string('aibackendurl_desc', 'local_slidesmaker'),
+        'http://127.0.0.1:8000',
+        PARAM_URL
+    ));
+}

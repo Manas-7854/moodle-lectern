@@ -1,6 +1,6 @@
 define(['jquery', 'core/notification', 'core/ajax'], function($, Notification, Ajax) {
     return {
-        init: function(courseId) {
+        init: function(courseId, aibackendurl) {
             console.log('local_coursetimeline init called with courseId: ' + courseId);
             var fetchedResources = [];
             var generatedTimelineData = null;
@@ -212,7 +212,7 @@ define(['jquery', 'core/notification', 'core/ajax'], function($, Notification, A
                     query: topic
                 };
 
-                fetch('http://localhost:8000/fetch_resources', {
+                fetch(aibackendurl + '/fetch_resources', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -350,7 +350,7 @@ define(['jquery', 'core/notification', 'core/ajax'], function($, Notification, A
                     var controller = new AbortController();
                     var timeoutId = setTimeout(function() { controller.abort(); }, 300000);
 
-                    fetch('http://localhost:8000/generate_timeline', {
+                    fetch(aibackendurl + '/generate_timeline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),

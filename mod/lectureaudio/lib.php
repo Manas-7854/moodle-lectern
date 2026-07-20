@@ -1,4 +1,27 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Library functions for mod_lectureaudio.
+ *
+ * @package    mod_lectureaudio
+ * @copyright  2026 Moodle Plugins Portfolio
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 /**
@@ -8,7 +31,7 @@ defined('MOODLE_INTERNAL') || die();
  * @return mixed True if module supports feature, false if not, null if doesn't know
  */
 function lectureaudio_supports($feature) {
-    switch($feature) {
+    switch ($feature) {
         case FEATURE_GROUPS:
             return true;
         case FEATURE_GROUPINGS:
@@ -71,7 +94,7 @@ function lectureaudio_update_instance($lectureaudio, $mform = null) {
 function lectureaudio_delete_instance($id) {
     global $DB;
 
-    if (!$lectureaudio = $DB->get_record('lectureaudio', array('id' => $id))) {
+    if (!$lectureaudio = $DB->get_record('lectureaudio', ['id' => $id])) {
         return false;
     }
 
@@ -79,7 +102,7 @@ function lectureaudio_delete_instance($id) {
     $fs = get_file_storage();
     $fs->delete_area_files(context_module::instance($lectureaudio->coursemodule)->id);
 
-    $DB->delete_records('lectureaudio', array('id' => $lectureaudio->id));
+    $DB->delete_records('lectureaudio', ['id' => $lectureaudio->id]);
 
     return true;
 }
@@ -96,7 +119,7 @@ function lectureaudio_delete_instance($id) {
  * @param array $options additional options affecting the file serving
  * @return bool false if file not found, does not return if found - justsend the file
  */
-function lectureaudio_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options=array()) {
+function lectureaudio_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
     if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
     }
@@ -111,7 +134,8 @@ function lectureaudio_pluginfile($course, $cm, $context, $filearea, $args, $forc
     $relativepath = implode('/', $args);
     $fullpath = "/$context->id/mod_lectureaudio/$filearea/$relativepath";
 
-    if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+    $file = $fs->get_file_by_hash(sha1($fullpath));
+    if (!$file || $file->is_directory()) {
         return false;
     }
 

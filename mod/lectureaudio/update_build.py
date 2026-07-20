@@ -7,15 +7,15 @@ Babel/Terser configuration and is the canonical way to build AMD modules.
 
 This script exists for standalone plugin development (no Moodle core
 checkout available) and requires Node.js + npx on PATH; it shells out to
-`npx terser` to produce a real minified file (with a source map), rather
-than the plain source-to-build copy this script used to do.
+`npx terser` to produce a real minified file, rather than a plain
+source-to-build copy.
 """
 import os
 import shutil
 import subprocess
 
 MODULES = [
-    ('local_coursetimeline/finder', 'amd/src/finder.js', 'amd/build/finder.min.js'),
+    ('mod_lectureaudio/recorder', 'amd/src/recorder.js', 'amd/build/recorder.min.js'),
 ]
 
 BANNER = "/*\n Copyright (c) Moodle Plugins Portfolio. Provided under GPL v3 or any later version.\n Source: {src}\n*/\n"

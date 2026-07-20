@@ -1,9 +1,10 @@
-define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Ajax, Notification, Str) {
+define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notification) {
     "use strict";
 
-    var Recorder = function(contextId, summaryContent) {
+    var Recorder = function(contextId, summaryContent, aibackendurl) {
         this.contextId = contextId;
         this.summaryContent = summaryContent;
+        this.aibackendurl = aibackendurl;
         
         // Components
         this.mediaRecorder = null;
@@ -109,7 +110,6 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             $('#startBtn').prop('disabled', true);
             $('#stopBtn').prop('disabled', false);
             $('#summarizeBtn').prop('disabled', true);
-            $('#verifyBtn').prop('disabled', true).hide(); // Not used in this mode
             $('#uploadBtn').prop('disabled', true);
             $('#statusMsg').text('Recording... (60s chunks)');
 
@@ -159,7 +159,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         self.chunkIndex++;
 
         // Send to Python Server
-        fetch('http://localhost:8000/transcribe_chunk', {
+        fetch(self.aibackendurl + '/transcribe_chunk', {
             method: 'POST',
             body: formData
         })
@@ -175,7 +175,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         })
         .catch(function(err) {
             console.error("Transcription Error:", err);
-            $('#statusMsg').text('Transcription connection failed (localhost:8000).');
+            $('#statusMsg').text('Transcription connection failed (' + self.aibackendurl + ').');
         });
     };
 
@@ -215,7 +215,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         $('#summarizeBtn').prop('disabled', true);
         $('#uploadBtn').prop('disabled', true);
 
-        fetch('http://localhost:8000/summarize', {
+        fetch(self.aibackendurl + '/summarize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
@@ -367,7 +367,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
     return {
         init: function(config) {
-            new Recorder(config.contextid, config.summaryContent);
+            new Recorder(config.contextid, config.summaryContent, config.aibackendurl);
         }
     };
 });

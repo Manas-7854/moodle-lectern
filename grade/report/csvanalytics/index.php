@@ -1,32 +1,71 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Upload a grades CSV and view exploratory data analysis and a grade
+ * cutoff calculator.
+ *
+ * @package    gradereport_csvanalytics
+ * @copyright  2026 Moodle Plugins Portfolio
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/csvlib.class.php');
 
-require_login();
+$courseid = optional_param('id', SITEID, PARAM_INT);
+$course = get_course($courseid);
 
-$PAGE->set_context(context_system::instance());
-$PAGE->set_url(new moodle_url('/grade/report/csvanalytics/index.php'));
+require_login($course);
+
+$context = context_course::instance($course->id);
+require_capability('gradereport/csvanalytics:view', $context);
+
+$PAGE->set_context($context);
+$PAGE->set_url(new moodle_url('/grade/report/csvanalytics/index.php', ['id' => $course->id]));
 $PAGE->set_title(get_string('pluginname', 'gradereport_csvanalytics'));
 $PAGE->set_heading(get_string('pluginname', 'gradereport_csvanalytics'));
 $PAGE->set_pagelayout('standard');
 
 require_once(__DIR__ . '/classes/analyzer.php');
 
-// Grading strategies function
-function getGradingStrategies($stats) {
+/**
+ * Builds the set of preset grade-cutoff strategies for the given total-score
+ * statistics (absolute, relative/std-dev, percentile-based and IIIT-style).
+ *
+ * @package    gradereport_csvanalytics
+ * @copyright  2026 Moodle Plugins Portfolio
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @param array $stats statistics for the course total, as returned by analyzer::calculate_stats()
+ * @return array keyed by strategy id, each with a name, description and cutoffs
+ */
+function get_grading_strategies($stats) {
     $mean = $stats['mean'];
     $std = $stats['stdDev'];
-    
+
     return [
         'absolute_strict' => [
             'name' => 'Absolute (Strict)',
             'description' => 'A≥90, B≥80, C≥70, D≥60',
-            'cutoffs' => ['A' => 90, 'A-' => 85, 'B' => 80, 'B-' => 75, 'C' => 70, 'C-' => 65, 'D' => 60, 'F' => 0]
+            'cutoffs' => ['A' => 90, 'A-' => 85, 'B' => 80, 'B-' => 75, 'C' => 70, 'C-' => 65, 'D' => 60, 'F' => 0],
         ],
         'absolute_relaxed' => [
             'name' => 'Absolute (Relaxed)',
             'description' => 'A≥85, B≥70, C≥55, D≥40',
-            'cutoffs' => ['A' => 85, 'A-' => 80, 'B' => 70, 'B-' => 62, 'C' => 55, 'C-' => 48, 'D' => 40, 'F' => 0]
+            'cutoffs' => ['A' => 85, 'A-' => 80, 'B' => 70, 'B-' => 62, 'C' => 55, 'C-' => 48, 'D' => 40, 'F' => 0],
         ],
         'relative_1std' => [
             'name' => 'Relative (μ±σ)',
@@ -39,8 +78,8 @@ function getGradingStrategies($stats) {
                 'C' => round($mean - 0.5 * $std, 1),
                 'C-' => round($mean - 1.0 * $std, 1),
                 'D' => round($mean - 1.5 * $std, 1),
-                'F' => 0
-            ]
+                'F' => 0,
+            ],
         ],
         'percentile_based' => [
             'name' => 'Percentile',
@@ -53,8 +92,8 @@ function getGradingStrategies($stats) {
                 'C' => $stats['percentiles']['p50'],
                 'C-' => $stats['percentiles']['p25'],
                 'D' => $stats['percentiles']['p10'],
-                'F' => 0
-            ]
+                'F' => 0,
+            ],
         ],
         'iiit_style' => [
             'name' => 'IIIT Relative',
@@ -67,56 +106,50 @@ function getGradingStrategies($stats) {
                 'C' => round($mean - 0.5 * $std, 1),
                 'C-' => round($mean - $std, 1),
                 'D' => round($mean - 1.5 * $std, 1),
-                'F' => 0
-            ]
-        ]
+                'F' => 0,
+            ],
+        ],
     ];
-}
-
-function getGradeColor($grade) {
-    $colors = [
-        'A' => '#00ff88', 'A-' => '#44dd88', 'B' => '#88cc44', 'B-' => '#aaaa44',
-        'C' => '#ddaa44', 'C-' => '#dd8844', 'D' => '#dd6644', 'F' => '#ff4444'
-    ];
-    return $colors[$grade] ?? '#666';
 }
 
 // Process data
 $data = [];
 $stats = null;
-$componentStats = [];
+$componentstats = [];
 $strategies = [];
-$selectedStrategy = 'relative_1std';
+$selectedstrategy = 'relative_1std';
 $students = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvfile']) && $_FILES['csvfile']['error'] === 0) {
-    $csvContent = file_get_contents($_FILES['csvfile']['tmp_name']);
-    
+    $csvcontent = file_get_contents($_FILES['csvfile']['tmp_name']);
+
     // Parse CSV
-    $lines = explode("\n", trim($csvContent));
+    $lines = explode("\n", trim($csvcontent));
     $headers = str_getcsv(array_shift($lines));
-    
+
     foreach ($lines as $line) {
-        if (empty(trim($line))) continue;
+        if (empty(trim($line))) {
+            continue;
+        }
         $row = str_getcsv($line);
         if (count($row) >= count($headers)) {
             $data[] = array_combine($headers, array_slice($row, 0, count($headers)));
         }
     }
-    
+
     if (!empty($data)) {
         $analyzer = new \gradereport_csvanalytics\analyzer();
         $results = $analyzer->analyze($data);
-        $componentStats = $results['component_stats'] ?? [];
-        
+        $componentstats = $results['component_stats'] ?? [];
+
         // Find "Total" or "Course total" stats
-        foreach ($componentStats as $name => $s) {
+        foreach ($componentstats as $name => $s) {
             if (stripos($name, 'total') !== false) {
                 $stats = $s;
                 break;
             }
         }
-        
+
         // Build students array for JS
         foreach ($data as $row) {
             $score = 0;
@@ -131,22 +164,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csvfile']) && $_FILE
                 $students[] = [
                     'name' => ($row['First name'] ?? '') . ' ' . ($row['Last name'] ?? ''),
                     'id' => $row['ID number'] ?? '',
-                    'score' => $score
+                    'score' => $score,
                 ];
             }
         }
-        
+
         if ($stats) {
-            $strategies = getGradingStrategies($stats);
+            $strategies = get_grading_strategies($stats);
         }
     }
 }
 
 if (isset($_POST['strategy']) && !empty($_POST['strategy'])) {
-    $selectedStrategy = $_POST['strategy'];
+    $selectedstrategy = $_POST['strategy'];
 }
 
-$currentCutoffs = $strategies[$selectedStrategy]['cutoffs'] ?? null;
+$currentcutoffs = $strategies[$selectedstrategy]['cutoffs'] ?? null;
 
 echo $OUTPUT->header();
 ?>
@@ -221,13 +254,12 @@ echo $OUTPUT->header();
             <input type="file" name="csvfile" accept=".csv">
             <button type="submit" class="btn btn-primary btn-lg">📤 Upload & Analyze</button>
         </form>
-        <?php if (!empty($students)): ?>
+        <?php if (!empty($students)) : ?>
             <p style="margin-top: 10px; color: #198754; font-weight: bold;">✅ Loaded <?= count($students) ?> students</p>
         <?php endif; ?>
     </div>
     
-    <?php if ($stats): ?>
-    
+    <?php if ($stats) : ?>
     <!-- ===================== EDA SECTION ===================== -->
     <h2>📈 Exploratory Data Analysis</h2>
     
@@ -248,34 +280,36 @@ echo $OUTPUT->header();
     <!-- Distribution Interpretation -->
     <div class="<?= abs($stats['skewness']) < 0.5 ? 'success-box' : 'warning-box' ?>">
         <strong>Distribution Analysis:</strong>
-        <?php if ($stats['skewness'] < -0.5): ?>
+        <?php if ($stats['skewness'] < -0.5) { ?>
             Left-skewed (negatively skewed) - More students scored high, with a tail towards lower scores.
-        <?php elseif ($stats['skewness'] > 0.5): ?>
+        <?php } else if ($stats['skewness'] > 0.5) { ?>
             Right-skewed (positively skewed) - More students scored low, with a tail towards higher scores.
-        <?php else: ?>
+        <?php } else { ?>
             Approximately symmetric - Scores are fairly normally distributed around the mean.
-        <?php endif; ?>
+        <?php } ?>
         | Kurtosis: <?= $stats['kurtosis'] ?> (<?= $stats['kurtosis'] > 0 ? 'heavy-tailed' : 'light-tailed' ?>)
     </div>
     
     <!-- Histogram using Moodle Chart API -->
     <div class="chart-container">
         <h3>📊 Score Distribution (Histogram)</h3>
-        <?php
-        $values = $stats['values'];
-        $bins = array_fill_keys(range(0, 100, 5), 0);
-        foreach ($values as $v) {
-            $v = min(100, max(0, $v));
-            $b = floor($v / 5) * 5;
-            if (isset($bins[$b])) $bins[$b]++;
-        }
-        
-        $chart1 = new \core\chart_bar();
-        $series1 = new \core\chart_series('Students', array_values($bins));
-        $chart1->add_series($series1);
-        $labels = array_map(fn($k) => "$k-" . ($k + 4), array_keys($bins));
-        $chart1->set_labels($labels);
-        echo $OUTPUT->render($chart1);
+            <?php
+            $values = $stats['values'];
+            $bins = array_fill_keys(range(0, 100, 5), 0);
+            foreach ($values as $v) {
+                $v = min(100, max(0, $v));
+                $b = floor($v / 5) * 5;
+                if (isset($bins[$b])) {
+                    $bins[$b]++;
+                }
+            }
+
+            $chart1 = new \core\chart_bar();
+            $series1 = new \core\chart_series('Students', array_values($bins));
+            $chart1->add_series($series1);
+            $labels = array_map(fn($k) => "$k-" . ($k + 4), array_keys($bins));
+            $chart1->set_labels($labels);
+            echo $OUTPUT->render($chart1);
         ?>
     </div>
     
@@ -297,7 +331,7 @@ echo $OUTPUT->header();
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($componentStats as $name => $cs): ?>
+                <?php foreach ($componentstats as $name => $cs) : ?>
                 <tr class="<?= stripos($name, 'total') !== false ? 'highlight' : '' ?>">
                     <td><strong><?= htmlspecialchars($name) ?></strong></td>
                     <td><?= $cs['count'] ?></td>
@@ -315,25 +349,25 @@ echo $OUTPUT->header();
     </div>
     
     <!-- Component Performance Chart -->
-    <?php if (count($componentStats) > 1): ?>
+            <?php if (count($componentstats) > 1) : ?>
     <div class="chart-container">
         <h3>📉 Component Performance Comparison</h3>
-        <?php
-        $compLabels = [];
-        $compMeans = [];
-        foreach ($componentStats as $name => $s) {
-            $compLabels[] = $name;
-            $compMeans[] = $s['mean'];
-        }
-        
-        $chart2 = new \core\chart_bar();
-        $series2 = new \core\chart_series('Mean Score', $compMeans);
-        $chart2->add_series($series2);
-        $chart2->set_labels($compLabels);
-        echo $OUTPUT->render($chart2);
+                <?php
+                $complabels = [];
+                $compmeans = [];
+                foreach ($componentstats as $name => $s) {
+                    $complabels[] = $name;
+                    $compmeans[] = $s['mean'];
+                }
+
+                $chart2 = new \core\chart_bar();
+                $series2 = new \core\chart_series('Mean Score', $compmeans);
+                $chart2->add_series($series2);
+                $chart2->set_labels($complabels);
+                echo $OUTPUT->render($chart2);
         ?>
     </div>
-    <?php endif; ?>
+            <?php endif; ?>
     
     <!-- Percentile Distribution -->
     <div class="card">
@@ -343,7 +377,7 @@ echo $OUTPUT->header();
                 <th>P5</th><th>P10</th><th>P25 (Q1)</th><th>P50 (Median)</th><th>P75 (Q3)</th><th>P90</th><th>P95</th>
             </tr>
             <tr>
-                <?php foreach ($stats['percentiles'] as $p): ?>
+                <?php foreach ($stats['percentiles'] as $p) : ?>
                     <td><?= $p ?></td>
                 <?php endforeach; ?>
             </tr>
@@ -357,8 +391,8 @@ echo $OUTPUT->header();
     <div class="card">
         <h3>Load Preset Strategy</h3>
         <div class="strategy-tabs">
-            <?php foreach ($strategies as $key => $strategy): ?>
-                <button type="button" class="strategy-tab <?= $selectedStrategy === $key ? 'active' : '' ?>" 
+            <?php foreach ($strategies as $key => $strategy) : ?>
+                <button type="button" class="strategy-tab <?= $selectedstrategy === $key ? 'active' : '' ?>" 
                         onclick="loadStrategy('<?= $key ?>')">
                     <?= $strategy['name'] ?>
                 </button>
@@ -366,8 +400,8 @@ echo $OUTPUT->header();
             <button type="button" class="btn-reset" onclick="resetCutoffs()">🔄 Reset</button>
         </div>
         <div class="info-box">
-            <strong id="strategyName"><?= $strategies[$selectedStrategy]['name'] ?? '' ?>:</strong> 
-            <span id="strategyDesc"><?= $strategies[$selectedStrategy]['description'] ?? '' ?></span>
+            <strong id="strategyName"><?= $strategies[$selectedstrategy]['name'] ?? '' ?>:</strong> 
+            <span id="strategyDesc"><?= $strategies[$selectedstrategy]['description'] ?? '' ?></span>
         </div>
     </div>
     
@@ -375,12 +409,12 @@ echo $OUTPUT->header();
     <div class="card">
         <h3>Adjust Cutoffs (Drag to modify)</h3>
         <div class="slider-grid">
-            <?php foreach (['A', 'A-', 'B', 'B-', 'C', 'C-', 'D'] as $grade): ?>
+            <?php foreach (['A', 'A-', 'B', 'B-', 'C', 'C-', 'D'] as $grade) : ?>
             <div class="slider-group">
-                <label><?= $grade ?> ≥ <span class="slider-value" id="val<?= str_replace('-', 'm', $grade) ?>"><?= $currentCutoffs[$grade] ?? 0 ?></span></label>
+                <label><?= $grade ?> ≥ <span class="slider-value" id="val<?= str_replace('-', 'm', $grade) ?>"><?= $currentcutoffs[$grade] ?? 0 ?></span></label>
                 <input type="range" id="cutoff<?= str_replace('-', 'm', $grade) ?>" 
                        min="0" max="100" step="0.5" 
-                       value="<?= $currentCutoffs[$grade] ?? 0 ?>"
+                       value="<?= $currentcutoffs[$grade] ?? 0 ?>"
                        oninput="updateCutoff('<?= $grade ?>', this.value)">
             </div>
             <?php endforeach; ?>
@@ -427,20 +461,20 @@ echo $OUTPUT->header();
     <?php endif; ?>
 </div>
 
-<?php if ($stats): ?>
+<?php if ($stats) : ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
 <script>
 const students = <?= json_encode($students) ?>;
 const strategies = <?= json_encode($strategies) ?>;
-let selectedStrategy = '<?= $selectedStrategy ?>';
+let selectedStrategy = '<?= $selectedstrategy ?>';
 
 const gradeColors = {
     'A': '#00ff88', 'A-': '#44dd88', 'B': '#88cc44', 'B-': '#aaaa44',
     'C': '#ddaa44', 'C-': '#dd8844', 'D': '#dd6644', 'F': '#ff4444'
 };
 
-let currentCutoffs = <?= json_encode($currentCutoffs ?? []) ?>;
+let currentCutoffs = <?= json_encode($currentcutoffs ?? []) ?>;
 let mainChart;
 
 function loadStrategy(key) {

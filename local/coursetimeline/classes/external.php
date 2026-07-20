@@ -1,4 +1,19 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 namespace local_coursetimeline;
 
 defined('MOODLE_INTERNAL') || die();
@@ -11,19 +26,25 @@ use external_value;
 use external_single_structure;
 use external_description;
 
+/**
+ * External functions for saving and retrieving a course's AI-generated timeline.
+ *
+ * @package    local_coursetimeline
+ * @copyright  2026 Moodle Plugins Portfolio
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class external extends external_api {
-
     /**
      * Returns description of method parameters
      * @return external_function_parameters
      */
     public static function save_timeline_parameters() {
         return new external_function_parameters(
-            array(
+            [
                 'courseid' => new external_value(PARAM_INT, 'The course ID'),
                 'timeline_json' => new external_value(PARAM_RAW, 'The timeline JSON string'),
-                'resources_json' => new external_value(PARAM_RAW, 'The resources JSON string')
-            )
+                'resources_json' => new external_value(PARAM_RAW, 'The resources JSON string'),
+            ]
         );
     }
 
@@ -31,19 +52,19 @@ class external extends external_api {
      * Saves the timeline and resources for a course.
      *
      * @param int $courseid
-     * @param string $timeline_json
-     * @param string $resources_json
+     * @param string $timelinejson
+     * @param string $resourcesjson
      * @return array
      */
-    public static function save_timeline($courseid, $timeline_json, $resources_json) {
+    public static function save_timeline($courseid, $timelinejson, $resourcesjson) {
         global $DB;
 
         // Parameter validation.
-        $params = self::validate_parameters(self::save_timeline_parameters(), array(
+        $params = self::validate_parameters(self::save_timeline_parameters(), [
             'courseid' => $courseid,
-            'timeline_json' => $timeline_json,
-            'resources_json' => $resources_json
-        ));
+            'timeline_json' => $timelinejson,
+            'resources_json' => $resourcesjson,
+        ]);
 
         // Security checks.
         $context = \context_course::instance($params['courseid']);
@@ -70,10 +91,10 @@ class external extends external_api {
             $DB->insert_record('local_coursetimeline', $record);
         }
 
-        return array(
+        return [
             'status' => 'success',
-            'message' => 'Timeline saved successfully.'
-        );
+            'message' => 'Timeline saved successfully.',
+        ];
     }
 
     /**
@@ -82,10 +103,10 @@ class external extends external_api {
      */
     public static function save_timeline_returns() {
         return new external_single_structure(
-            array(
+            [
                 'status' => new external_value(PARAM_TEXT, 'Operation status'),
-                'message' => new external_value(PARAM_TEXT, 'Return message')
-            )
+                'message' => new external_value(PARAM_TEXT, 'Return message'),
+            ]
         );
     }
 
@@ -95,9 +116,9 @@ class external extends external_api {
      */
     public static function get_timeline_parameters() {
         return new external_function_parameters(
-            array(
-                'courseid' => new external_value(PARAM_INT, 'The course ID')
-            )
+            [
+                'courseid' => new external_value(PARAM_INT, 'The course ID'),
+            ]
         );
     }
 
@@ -111,9 +132,9 @@ class external extends external_api {
         global $DB;
 
         // Parameter validation.
-        $params = self::validate_parameters(self::get_timeline_parameters(), array(
-            'courseid' => $courseid
-        ));
+        $params = self::validate_parameters(self::get_timeline_parameters(), [
+            'courseid' => $courseid,
+        ]);
 
         // Security checks.
         $context = \context_course::instance($params['courseid']);
@@ -123,17 +144,17 @@ class external extends external_api {
         $existing = $DB->get_record('local_coursetimeline', ['courseid' => $params['courseid']]);
 
         if ($existing) {
-            return array(
+            return [
                 'timeline_json' => $existing->timeline_json,
                 'resources_json' => $existing->resources_json,
-                'has_data' => true
-            );
+                'has_data' => true,
+            ];
         } else {
-            return array(
+            return [
                 'timeline_json' => '',
                 'resources_json' => '',
-                'has_data' => false
-            );
+                'has_data' => false,
+            ];
         }
     }
 
@@ -143,11 +164,11 @@ class external extends external_api {
      */
     public static function get_timeline_returns() {
         return new external_single_structure(
-            array(
+            [
                 'timeline_json' => new external_value(PARAM_RAW, 'The timeline JSON string'),
                 'resources_json' => new external_value(PARAM_RAW, 'The resources JSON string'),
-                'has_data' => new external_value(PARAM_BOOL, 'Whether data was found')
-            )
+                'has_data' => new external_value(PARAM_BOOL, 'Whether data was found'),
+            ]
         );
     }
 }
