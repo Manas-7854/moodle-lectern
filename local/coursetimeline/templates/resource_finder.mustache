@@ -1,0 +1,41 @@
+<div class="container-fluid resource-finder-container" data-can-manage="{{#canmanage}}1{{/canmanage}}{{^canmanage}}0{{/canmanage}}">
+    {{#canmanage}}
+    <h2>{{#str}}find_resources, local_coursetimeline{{/str}}</h2>
+    <form id="resource-finder-form">
+        <div class="form-group">
+            <label for="course-topic">{{#str}}course_topic, local_coursetimeline{{/str}}</label>
+            <input type="text" class="form-control" id="course-topic" value="Machine Learning" placeholder="{{#str}}enter_topic, local_coursetimeline{{/str}}">
+        </div>
+
+        <div class="form-group">
+            <label for="course-duration">{{#str}}dist_weeks, local_coursetimeline{{/str}}</label>
+            <input type="number" class="form-control" id="course-duration" placeholder="{{#str}}enter_weeks, local_coursetimeline{{/str}}">
+        </div>
+
+        <div class="form-group">
+            <label for="course-level">{{#str}}level, local_coursetimeline{{/str}}</label>
+            <select class="form-control" id="course-level">
+                <option value="High School">{{#str}}level_highschool, local_coursetimeline{{/str}}</option>
+                <option value="Undergraduate" selected>{{#str}}level_undergraduate, local_coursetimeline{{/str}}</option>
+                <option value="Postgraduate">{{#str}}level_postgraduate, local_coursetimeline{{/str}}</option>
+            </select>
+        </div>
+
+        <button type="button" id="find-resources-btn" class="btn btn-primary">{{#str}}find, local_coursetimeline{{/str}}</button>
+    </form>
+    {{/canmanage}}
+
+    <div id="resource-results" class="mt-4">
+        <!-- Resource Table will appear here -->
+    </div>
+    
+    <div id="timeline-results" class="mt-4" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Generated Course Timeline</h3>
+            {{#canmanage}}
+            <button id="save-timeline-btn" class="btn btn-success">{{#str}}save, local_coursetimeline{{/str}}</button>
+            {{/canmanage}}
+        </div>
+        <div id="timeline-content"></div>
+    </div>
+</div>

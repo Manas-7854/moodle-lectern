@@ -1,0 +1,98 @@
+<div class="mod-lectureaudio-container container mt-4" id="lectureaudio-container-{{cmid}}">
+    {{#hasrecording}}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">{{#str}}listen, mod_lectureaudio{{/str}}</h5>
+        </div>
+        <div class="card-body text-center">
+             <audio controls src="{{recordingurl}}" class="w-100"></audio>
+        </div>
+    </div>
+    {{/hasrecording}}
+
+    {{#hastranscript}}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">Lecture Transcript</h5>
+        </div>
+        <div class="card-body text-center">
+             <a href="{{transcripturl}}" class="btn btn-lg btn-outline-dark" target="_blank">
+                <i class="fa fa-file-text"></i> Download Transcript
+             </a>
+        </div>
+    </div>
+    {{/hastranscript}}
+
+    {{^hasrecording}}
+       {{^hastranscript}}
+       <div class="alert alert-info">{{#str}}norecording, mod_lectureaudio{{/str}}</div>
+       {{/hastranscript}}
+    {{/hasrecording}}
+
+    {{#canrecord}}
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">{{#str}}modulename, mod_lectureaudio{{/str}} - {{#str}}startrecording, mod_lectureaudio{{/str}}</h5>
+        </div>
+        <div class="card-body text-center">
+            
+            <div class="timer-display mb-3" style="font-size: 3rem; font-family: monospace; font-weight: bold;">
+                <span id="timer">00:00</span>
+            </div>
+
+            <div class="visualizer-container mb-4">
+                 <canvas id="audio-visualizer" width="800" height="150" style="width: 100%; height: 150px; border-radius: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6;"></canvas>
+            </div>
+
+            <div class="transcript-container mb-4 text-start">
+                <label for="liveTranscript" class="form-label font-weight-bold">Live AI Transcript (Editable)</label>
+                <textarea id="liveTranscript" class="form-control" rows="6" placeholder="Transcript will appear here. You can edit this text before summarizing..."></textarea>
+            </div>
+
+            <div class="controls d-flex gap-3 justify-content-center flex-wrap">
+                <button id="startBtn" class="btn btn-danger btn-lg px-4">
+                    <i class="fa fa-microphone"></i> Record
+                </button>
+                <button id="stopBtn" class="btn btn-secondary btn-lg px-4" disabled>
+                    <i class="fa fa-stop"></i> Stop
+                </button>
+                <button id="summarizeBtn" class="btn btn-info btn-lg px-4 text-white" disabled>
+                    <i class="fa fa-magic"></i> Summarize
+                </button>
+                <button id="uploadBtn" class="btn btn-success btn-lg px-4" disabled>
+                    <i class="fa fa-save"></i> Save/Upload
+                </button>
+            </div>
+            
+            <div id="statusMsg" class="mt-3 text-muted font-weight-bold">Ready to record</div>
+        </div>
+    </div>
+
+    <!-- Hidden Summary Section (Initially hidden, populated by JS if data exists) -->
+    <div id="summary-section" class="card shadow mt-4" style="display:none;">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fa fa-magic"></i> AI Summary Notes</h5>
+        </div>
+        <div class="card-body text-start">
+            <div id="aiSummaryContent" class="p-3" style="font-size: 1.1rem; line-height: 1.6;"></div>
+        </div>
+    </div>
+    
+    {{! We might not be inside #canrecord block if we are a student viewing it. 
+        So we need to ensure the JS logic works for students too, or move this div out.
+        Currently it's inside #canrecord. Let's move it out to be safe for all. }}
+    {{/canrecord}}
+
+    {{^canrecord}}
+        {{#hasSummary}}
+        <div id="summary-section" class="card shadow mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fa fa-magic"></i> AI Summary Notes</h5>
+            </div>
+            <div class="card-body text-start">
+                <div id="aiSummaryContent" class="p-3" style="font-size: 1.1rem; line-height: 1.6;"></div>
+            </div>
+        </div>
+        {{/hasSummary}}
+    {{/canrecord}}
+</div>
